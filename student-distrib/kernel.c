@@ -14,11 +14,11 @@
 #include "filesys.h"
 #include "rtc.h"
 #include "system.h"
+#include "task_switch.h"
 #define RUN_TESTS
 
 
-/* Macros. */
-/* Check if the bit BIT in FLAGS is set. */
+//* Check if the bit BIT in FLAGS is set. */
 #define CHECK_FLAG(flags, bit)   ((flags) & (1 << (bit)))
 
 /* Check if MAGIC is valid and print the Multiboot information structure
@@ -142,6 +142,11 @@ void entry(unsigned long magic, unsigned long addr) {
         tss.esp0 = 0x800000;
         ltr(KERNEL_TSS);
     }
+	
+	int i;
+	for (i = 0; i < MAX_NUM_PROCESSES; i++) {
+		processes[i] = 0;
+	}
 
     cli();
 	
@@ -154,6 +159,7 @@ void entry(unsigned long magic, unsigned long addr) {
     i8259_init();
 	//rtc init
 	init_rtc(); 
+    
     //initialize paging
     paging_init();
     paging_enable();
@@ -169,13 +175,16 @@ void entry(unsigned long magic, unsigned long addr) {
 	
 	// rtc 
 	enable_irq(2); 
-	enable_irq(8); 
+    enable_irq(8); 
+    
 
     /* Enable interrupts */
     /* Do not enable the following until after you have set up your
      * IDT correctly otherwise QEMU will triple fault and simple close
      * without showing you any output */
     printf("Enabling Interrupts\n");
+	pit_init();
+	enable_irq(0);
     sti();
 
     terminal_open(0);
@@ -187,7 +196,12 @@ void entry(unsigned long magic, unsigned long addr) {
 #endif
 
     /* Execute the first program ("shell") ... */
-    clear();
+    active_tty = 0;
+    tty_top_pid[0] = TTY_UNOPENED;
+    tty_top_pid[1] = TTY_UNOPENED;
+    tty_top_pid[2] = TTY_UNOPENED;
+
+    next_one_is_root_shell = 1;
     sys_execute((uint8_t*)"shell");
 
     /* Spin (nicely, so we don't chew up cycles) */

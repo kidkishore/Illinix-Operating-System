@@ -24,11 +24,25 @@ int32_t read_dentry_by_name(const uint8_t* fname, dentry_t* dentry)
     }
 
 
+
     //loop through all directory names to determine which one matches our target directory
     for (i = 0; i < boot_block->num_dir; i++)
     {
+		uint32_t file_name_length = strlen((char*)(boot_block->directories[i].file_name));
+		
+        //compare the longer string
+        if(name_length > file_name_length){
+            file_name_length = name_length;
+        }
+
+        //shorten length of comparision if needed
+		if (file_name_length > FILE_NAME_SIZE)
+			file_name_length = FILE_NAME_SIZE;
+
+        
+	
         // printf("%s %d %d\n", boot_block->directories[i].file_name, strncmp((int8_t*)fname, (char*)(boot_block->directories[i].file_name), name_length), name_length);
-        if (!strncmp((int8_t*)fname, (char*)(boot_block->directories[i].file_name), name_length))
+        if (!strncmp((int8_t*)fname, (char*)(boot_block->directories[i].file_name), file_name_length))
         {
             //once we've found the directory with the matching name, do the same thing as reading directory with specific index
             return read_dentry_by_index(i, dentry);
@@ -47,7 +61,7 @@ int32_t read_dentry_by_name(const uint8_t* fname, dentry_t* dentry)
 int32_t read_dentry_by_index(uint32_t index, dentry_t* dentry)
 {
 
-     if ((index > NUM_DIR) || (index < 0))
+    if ((index < 0) || (dentry == NULL) || (index > NUM_DIR))
     {
         return -1;
     }
@@ -113,6 +127,11 @@ int32_t read_data(uint32_t inode, uint32_t offset, uint8_t* buf, uint32_t length
  */
 int32_t file_read(int32_t fd, void* buf, int32_t nbytes)
 {
+
+    if(fd < 0 || (fd >= FD_ARRAY_SIZE)){
+        return -1;
+    }
+
     pcb_t *curr_pcb = get_pcb();
     int32_t bytes_read;
 
@@ -134,6 +153,11 @@ int32_t file_read(int32_t fd, void* buf, int32_t nbytes)
  */
 int32_t file_write(int32_t fd, const void* buf, int32_t nbytes)
 {
+    if(fd < 0 || (fd >= FD_ARRAY_SIZE)){
+        return -1;
+    }
+
+
     return -1;
 }
 
@@ -166,6 +190,11 @@ int32_t file_close(int32_t fd)
 int32_t dir_read(int32_t fd, void* buf, int32_t nbytes)
 {
 
+    if(fd < 0 || (fd >= FD_ARRAY_SIZE)){
+        return -1;
+    }
+
+
     pcb_t *curr_pcb = get_pcb();
 
 	char* temp = (char*)buf;
@@ -177,6 +206,10 @@ int32_t dir_read(int32_t fd, void* buf, int32_t nbytes)
     bytes_read = 0;
 
     success = read_dentry_by_index(curr_pcb->fd_array[fd].file_pos, &dentry);
+
+    if(success == -1){
+        return -1;
+    }
 
     for(i = 0;i < FILE_NAME_SIZE; i++){
         if((dentry.file_name[i]) != NULL && (i < nbytes)){
@@ -200,6 +233,11 @@ int32_t dir_read(int32_t fd, void* buf, int32_t nbytes)
  */
 int32_t dir_write(int32_t fd, const void* buf, int32_t nbytes)
 {
+
+    if(fd < 0 || (fd >= FD_ARRAY_SIZE)){
+        return -1;
+    }
+
     return -1;
 }
 
@@ -220,6 +258,11 @@ int32_t dir_open(const uint8_t* filename)
  */
 int32_t dir_close(int32_t fd)
 {
+
+    if(fd < 0 || (fd >= FD_ARRAY_SIZE)){
+        return -1;
+    }
+
     return 0;
 }
 

@@ -388,11 +388,11 @@ void launch_tests(){
 
 	// TEST_OUTPUT("file_system_test", file_sys_test());
 
-	TEST_OUTPUT("term test", terminal_test());
+	//TEST_OUTPUT("term test", terminal_test());
 
 
 	//TEST_OUTPUT("read_dentry_by_index_test", read_dentry_by_index_test());
-	// TEST_OUTPUT("read_dentry_by_name_test", read_dentry_by_name_test());
+	TEST_OUTPUT("read_dentry_by_name_test", read_dentry_by_name_test());
 	// TEST_OUTPUT("read_data_test", read_data_test());
 	//rtc_test(); 
 	//TEST_OUTPUT("read_dentry_by_name_test", read_dentry_by_name_test());

@@ -7,12 +7,14 @@
 #define EIGHT_KB 8192
 #define PRESENT_PAGE 0x1
 #define FOUR_MEG 0x400000
+#define EIGHT_MEG 0x800000
 #define VIDEO 0xB8000
 #define KERNEL 0x400000
 #define KERNEL_BOTTOM 0x800000
 #define ENABLE_KERNEL 0x80
 #define ENABLE_USER   0x7
 #define USER_PROGRAM_PDIR_LOC 32
+#define VID_MAP_LOC 33
 
 
 //page directory
@@ -26,6 +28,7 @@ extern void create_page(uint32_t curr_process);
 void paging_init();
 void paging_enable();
 extern void create_page(uint32_t curr_process);
+extern uint8_t* set_vidmap();
 
 #endif /* _PAGING_H */
 

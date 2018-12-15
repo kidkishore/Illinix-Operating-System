@@ -5,6 +5,7 @@
 #include "filesys.h"
 #include "multiboot.h"
 #include "dev/terminal.h"
+#include "system.h"
 
 #define FD_ARRAY_SIZE 8
 #define NUM_OPERATIONS 4
@@ -24,8 +25,12 @@ struct pcb  {
 	int32_t process_num;
 	int32_t parent_esp0; 
 	int32_t parent_ss0;
+	int32_t ebp;
+	int32_t esp;
 	int32_t parent_ebp;
 	int32_t parent_esp;
+	uint8_t args[ARGS_ARR_SIZE];
+	uint8_t tty;
 }  __attribute__((aligned(16)));
 
 typedef struct pcb pcb_t;

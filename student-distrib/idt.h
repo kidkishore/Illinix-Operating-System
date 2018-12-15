@@ -3,8 +3,10 @@
 #ifndef _IDT
 #define _IDT
 
+#include "pit.h"
+
 #define NUM_RESERVED_VEC	32
-#define SYS_CALL_ENTRY 0x80 
+#define SYS_CALL_ENTRY 0x80
 void load_idt();
 void divide_zero_exception();
 void single_step_exception();
@@ -28,6 +30,7 @@ void simd_exception();
 void kb_interrupt();
 void kb_interrupt_do();
 void rtc_interrupt();
+void pit_interrupt();
 void sys_call(); 
 
 #endif /* IDT */

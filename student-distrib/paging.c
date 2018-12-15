@@ -70,11 +70,17 @@ void paging_enable(){
 
 }
 
+/* Function: create_page
+ * Inputs: curr_process
+ * Return Value: none
+ * Description: Creates a new page for a user level function
+ */
 void create_page(uint32_t curr_process) {
 	
 	uint32_t location = KERNEL_BOTTOM + curr_process * FOUR_MEG;
 
-	page_dir[USER_PROGRAM_PDIR_LOC] = location | ENABLE_KERNEL | ENABLE_USER | PRESENT_PAGE; // ?
+	page_dir[USER_PROGRAM_PDIR_LOC] = location | ENABLE_KERNEL | ENABLE_USER | PRESENT_PAGE;
+	page_dir[31] = (uint32_t)page_table | PRESENT_PAGE | ENABLE_USER;
 	//flush the TLB
 	asm volatile("movl %%cr3, %%eax;	\n" 
 				 "movl %%eax, %%cr3;	  " 
@@ -82,3 +88,20 @@ void create_page(uint32_t curr_process) {
 		:
 		: "eax");
 }
+
+/* Function: set_vidmap
+ * Inputs: none
+ * Return Value: uint8_t*
+ * Description: Returns address of video memory to be used by user level program
+ */
+uint8_t* set_vidmap() {
+	//set up new page table 
+	page_dir[0] =  (uint32_t)page_table | ENABLE_USER| PRESENT_PAGE;
+
+	//use new virtual address for vidmap (132mb)
+	page_table[VID_MAP_LOC] = VIDEO | ENABLE_USER | PRESENT_PAGE;
+	asm volatile("movl %%eax, %%cr3;" ::"a"(page_dir)); 
+	return (uint8_t*) ((VID_MAP_LOC)<<12);
+}
+
+

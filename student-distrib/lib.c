@@ -13,18 +13,35 @@
 #define VGA_DATA 0x3d5
 #define CURSOR_HI 0x0E
 #define CURSOR_LO 0x0F
+#define SCREEN_SIZE 4000
 
 static int screen_x;
 static int screen_y;
 static char* video_mem = (char *)VIDEO;
 
+char screen_buf[MAX_TTY][SCREEN_SIZE];
+char screen_loc_buf[MAX_TTY][2];
 
+/* void switch_screen(uint8_t new_tty);
+ * Inputs: new_tty
+ * Return Value: none
+ * Side effect: save old vid mem, replace screen with new mem, also save and update cursor
+ * Function: switch screen */
+void switch_screen(uint8_t new_tty) {
+  memcpy((void *)screen_buf[active_tty], (void *)VIDEO, SCREEN_SIZE);
+  screen_loc_buf[active_tty][0] = screen_x;
+  screen_loc_buf[active_tty][1] = screen_y;
+  clear();
+  memcpy((void *)VIDEO, (void *)screen_buf[new_tty], SCREEN_SIZE);
+  screen_x = screen_loc_buf[new_tty][0];
+  screen_y = screen_loc_buf[new_tty][1];
+  update_cursor();
+}
 /* void update_cursor(void);
  * Inputs: void
  * Return Value: none
  * Side effect: set curosr location on scrneen
  * Function: move cursor */
-
 void update_cursor(void) {
 	uint16_t pos = screen_y * NUM_COLS + screen_x;
 
@@ -32,7 +49,6 @@ void update_cursor(void) {
 	outb(((pos >> 8) & 0xFF), VGA_DATA);
 	outb(CURSOR_LO, VGA_CMD);
 	outb((pos & 0xFF), VGA_DATA);
-
 }
 /* void clear(void);
  * Inputs: void
@@ -216,6 +232,9 @@ int32_t puts(int8_t* s) {
  * Return Value: void
  *  Function: Output a character to the console */
 void putc(uint8_t c) {
+    if (!c) {
+        return;
+    }
     if(c == '\n' || c == '\r') {
         screen_y++;
         screen_x = 0;
@@ -223,8 +242,11 @@ void putc(uint8_t c) {
     if(c == '\t'){
         screen_x += 4;
     }
-
-    if (screen_y == NUM_ROWS) {
+    if (screen_x >= NUM_COLS) {
+        screen_y ++;
+        screen_x = 0;
+    }
+    if (screen_y >= NUM_ROWS) {
         int i;
         for (i = 0; i < (NUM_ROWS - 1) * NUM_COLS; i++) {
             int j = i + NUM_COLS;

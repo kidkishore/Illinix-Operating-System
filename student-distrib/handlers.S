@@ -14,30 +14,50 @@ rtc_interrupt:
   popa
   iret
 
+.global pit_interrupt
+
+pit_interrupt:
+  pusha
+  call pit_handler
+  popa
+  iret
+
 .global sys_call 
 sys_call:
 	# push %eax 
-	push %ebp
-	push %edi
-	push %esi
-	push %edx
-	push %ecx
-	push %ebx
-	push %esp
+	pushl %ebp
+	pushl %edi
+	pushl %esi
+	pushl %edx
+	pushl %ecx
+	pushl %ebx
+	
+	# Check if EAX is out of bounds -- if so, jump to
+	cmp $1, %eax
+	jl not_valid		#check to see if vaid system call number
+	cmp $10, %eax
+	jg not_valid		#check to see if vaid system call number
 	call *sys_call_jumptable(, %eax, 4)
-	add $4, %esp
-	pop %ebx
-	pop %ecx
-	pop %edx 
-	pop %esi
-	pop %edi 
-	pop %ebp 
+	
+	jmp finish
+not_valid:
+	movl $-1,%eax
+finish:
+	popl %ebx
+	popl %ecx
+	popl %edx 
+	popl %esi
+	popl %edi 
+	popl %ebp
+  sti
 	# pop %eax
-    # overwritten by return value	
-	iret 
+    # overwritten by return value
+	iret
 
 
 sys_call_jumptable: 
-	.long 0, halt, execute, read, write, open, close
+	.long 0x0, halt, execute, read, write, open, close, getargs, vidmap, set_handler, sigreturn
+
+	.end
 
 	#, getargs, vidmap, set_handler, sigreturn 

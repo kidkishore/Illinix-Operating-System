@@ -48,7 +48,7 @@ void load_idt(){
 
     	}
 
-      if (i == 33 || i == 40) {
+      if (i == 33 || i == 40 || i == 32) {
         // intterupt
         // kb, rtc
         idt[i].seg_selector = KERNEL_CS;
@@ -90,7 +90,8 @@ void load_idt(){
     SET_IDT_ENTRY(idt[18],machine_check_exception);
     SET_IDT_ENTRY(idt[19],simd_exception);
     SET_IDT_ENTRY(idt[33], kb_interrupt);
-	  SET_IDT_ENTRY(idt[40], rtc_interrupt);
+    SET_IDT_ENTRY(idt[40], rtc_interrupt);
+    SET_IDT_ENTRY(idt[0x20], pit_interrupt);
     SET_IDT_ENTRY(idt[SYS_CALL_ENTRY], sys_call);
 }
 
@@ -102,37 +103,21 @@ int32_t alt_pressed = 0;
 int32_t meta_pressed = 0;
 int32_t enter_pressed = 0;
 
-char char_map[57] = {
+#define BKSP_PRESSED (input == 0x0e)
+
+char char_map[58] = {
   '?', '?', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '?', ' ',
   'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n', '?', 'a', 's',
   'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`', '?', '\\', 'z', 'x', 'c', 'v',
-  'b', 'n', 'm', ',', '.', '/', '?', '?', ' '};
+  'b', 'n', 'm', ',', '.', '/', '?', '?', '?', ' '};
 
-char char_map_caps[57] = {
+char char_map_caps[58] = {
   '?', '?', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '?', ' ',
   'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', '\n', '?', 'A', 'S',
   'D', 'F', 'G', 'H', 'J', 'K', 'L', ':', '"', '~', '?', '|', 'Z', 'X', 'C', 'V',
-  'B', 'N', 'M', ',', '.', '?', '?', '?', ' '};
+  'B', 'N', 'M', ',', '.', '?', '?', '?', '?', ' '};
 
 
-#define ENTER_PRESSED (input == 0x1c)
-#define BKSP_PRESSED (input == 0x0e)
-#define BKSP_CHAR 8
-#define CLS_CHAR 25
-#define VIDEO       0xB8000
-#define NUM_COLS    80
-#define NUM_ROWS    25
-#define ATTRIB      0x7
-#define CTRL_PRESSED ((input == 0x1D) || (input == 0xE0))
-#define CTRL_RELEASED ((input == 0x9D))
-#define SHIFT_PRESSED ((input == 42) || (input == 54))
-#define SHIFT_RELEASED ((input == 0xAA) || (input == 0xB6))
-#define ALT_PRESSED ((input == 0x38) || (input == 0x36))
-#define ALT_RELEASED (input == 0xB8)
-#define ANY_RELEASED ((input >= 0x81 && input <= 0xD8))
-#define CLEAR_PRESSED ctrl_pressed && (input == 0x26)
-#define CAPS_PRESSED (input == 0x3A)
-#define NOT_SYMBOL_PRESSED (char_map[input] <= 'z' && char_map[input] >= 'a')
 
 int32_t x = 0, y = 0;
 
@@ -147,7 +132,6 @@ void kb_interrupt_do(int irq, void *dev_id/*, struct pt_regs *regs*/) {
   input = inb(0x60);
 
   char character;
-  // printf("%d\n", input);
   if (ANY_RELEASED) {
     if (CTRL_RELEASED)
       ctrl_pressed = 0;
@@ -188,11 +172,17 @@ void kb_interrupt_do(int irq, void *dev_id/*, struct pt_regs *regs*/) {
 
   if (alt_pressed || ctrl_pressed || meta_pressed) {
     if (CLEAR_PRESSED) {
-      character = CLS_CHAR;
-      terminal_write(0, &character, 1);
+      clear();
+    }
+    if (REQUESTED_SWITCH_TO_TTY) {
+      send_eoi(1);
+      switch_to_tty(TTY_N_FROM_INPUT);
+      active_tty = TTY_N_FROM_INPUT;
     }
     goto kb_handle_done;
   } else {
+    if (input > 58)
+      goto kb_handle_done;
     if (NOT_SYMBOL_PRESSED) {
       character = shift_pressed ^ caps_enabled ? char_map_caps[input] : char_map[input];
     } else {
@@ -217,7 +207,7 @@ void kb_interrupt_do(int irq, void *dev_id/*, struct pt_regs *regs*/) {
 void divide_zero_exception(){
   cli();
   printf("divide by zero exception.\n");
-  halt(-1);
+  halt(1);
 }
 
 /* Function: single_step_exception
@@ -229,7 +219,7 @@ void divide_zero_exception(){
 void single_step_exception(){
   cli();
   printf("Single step exception.\n");
-  halt(-1);
+  halt(1);
 }
 
 /* Function: nmi_exception
@@ -240,7 +230,7 @@ void single_step_exception(){
 void nmi_exception(){
   cli();
   printf("NMI exception.\n");
-  halt(-1);
+  halt(1);
 }
 
 
@@ -253,7 +243,7 @@ void nmi_exception(){
 void breakpoint_exception(){
   cli();
   printf("Breakpoint exception.\n");
-  halt(-1);
+  halt(1);
 }
 
 
@@ -265,7 +255,7 @@ void breakpoint_exception(){
 void overflow_exception(){
   cli();
   printf("Overflow exception.\n");
-  halt(-1);
+  halt(1);
 }
 
 
@@ -277,7 +267,7 @@ void overflow_exception(){
 void bounds_exception(){
   cli();
   printf("Bounds exception.\n");
-  halt(-1);
+  halt(1);
 }
 
 
@@ -289,7 +279,7 @@ void bounds_exception(){
 void invalid_opcode_exception(){
   cli();
   printf("Invalid opcode exception.\n");
-  halt(-1);
+  halt(1);
 }
 
 /* Function: coprocessor_exception
@@ -300,7 +290,7 @@ void invalid_opcode_exception(){
 void coprocessor_exception(){
   cli();
   printf("Coprocessor exception.\n");
-  halt(-1);
+  halt(1);
 }
 
 /* Function: double_fault_exception
@@ -311,7 +301,7 @@ void coprocessor_exception(){
 void double_fault_exception(){
   cli();
   printf("Double fault exception.\n");
-  halt(-1);
+  halt(1);
 }
 
 /* Function: segment_overrun_exception
@@ -322,7 +312,7 @@ void double_fault_exception(){
 void segment_overrun_exception(){
   cli();
   printf("Segment overrun exception.\n");
-  halt(-1);
+  halt(1);
 }
 
 /* Function: invalid_tss_exception
@@ -333,7 +323,7 @@ void segment_overrun_exception(){
 void invalid_tss_exception(){
   cli();
   printf("Invalid tss exception.\n");
-  halt(-1);
+  halt(1);
 }
 
 /* Function: segment_not_present_exception
@@ -344,7 +334,7 @@ void invalid_tss_exception(){
 void segment_not_present_exception(){
   cli();
   printf("Segment not present exception.\n");
-  halt(-1);
+  halt(1);
 }
 
 
@@ -356,7 +346,7 @@ void segment_not_present_exception(){
 void stack_fault_exception(){
   cli();
   printf("Stack fault exception.\n");
-  halt(-1);
+  halt(1);
 }
 
 
@@ -368,7 +358,7 @@ void stack_fault_exception(){
 void general_protection_exception(){
   cli();
   printf("General protection exception.\n");
-  halt(-1);
+  halt(1);
 }
 
 /* Function: page_fault_exception
@@ -379,7 +369,7 @@ void general_protection_exception(){
 void page_fault_exception(){
   cli();
   printf("Page fault exception.\n");
-  halt(-1);
+  halt(1);
 }
 
 /* Function: math_fault_exception
@@ -390,7 +380,7 @@ void page_fault_exception(){
 void math_fault_exception(){
   cli();
   printf("Math fault exception.\n");
-  halt(-1);
+  halt(1);
 }
 
 
@@ -402,7 +392,7 @@ void math_fault_exception(){
 void alignment_check_exception(){
   cli();
   printf("Alignment check exception.\n");
-  halt(-1);
+  halt(1);
 }
 
 
@@ -414,7 +404,7 @@ void alignment_check_exception(){
 void machine_check_exception(){
   cli();
   printf("Machine check exception.\n");
-  halt(-1);
+  halt(1);
 }
 
 
@@ -426,6 +416,6 @@ void machine_check_exception(){
 void simd_exception(){
   cli();
   printf("Simd exception.\n");
-  halt(-1);
+  halt(1);
 }
 
